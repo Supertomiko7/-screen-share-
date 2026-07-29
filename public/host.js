@@ -26,7 +26,16 @@
   function createPeerConnection() {
     const conn = new RTCPeerConnection({ iceServers });
 
-    localStream.getTracks().forEach((track) => conn.addTrack(track, localStream));
+    localStream.getTracks().forEach((track) => {
+      const sender = conn.addTrack(track, localStream);
+      if (track.kind === 'video') {
+        const params = sender.getParameters();
+        if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+        params.encodings[0].maxFramerate = 60;
+        params.encodings[0].maxBitrate = 6_000_000; // 6 Mbps ceiling — enough headroom for fast motion at 60fps
+        sender.setParameters(params).catch(() => {});
+      }
+    });
 
     conn.onicecandidate = (event) => {
       if (event.candidate) {
@@ -47,11 +56,19 @@
 
   async function startSharing() {
     try {
-      localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      localStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 60, max: 60 } },
+        audio: true,
+      });
     } catch (err) {
       showError('Screen share was cancelled or is not permitted: ' + err.message);
       return;
     }
+
+    // Default screen-capture tracks are hinted as "detail" (optimized for text
+    // sharpness), which biases the encoder toward low frame rate. "motion"
+    // tells it to prioritize smoothness instead — needed for fast gameplay.
+    localStream.getVideoTracks()[0].contentHint = 'motion';
 
     preview.srcObject = localStream;
     preview.classList.remove('hidden');
