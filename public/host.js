@@ -18,6 +18,22 @@
     .then((cfg) => { iceServers = cfg.iceServers; })
     .catch(() => {});
 
+  // setParameters() bitrate alone isn't always honored by Opus without also
+  // forcing stereo + a target bitrate in the SDP itself.
+  function boostOpusAudio(sdp) {
+    const lines = sdp.split('\r\n');
+    const opusLine = lines.find((l) => /^a=rtpmap:\d+ opus\/48000/i.test(l));
+    if (!opusLine) return sdp;
+    const payload = opusLine.match(/^a=rtpmap:(\d+) /)[1];
+    return lines.map((line) => {
+      if (!line.startsWith(`a=fmtp:${payload}`)) return line;
+      let next = line;
+      if (!/stereo=/.test(next)) next += ';stereo=1;sprop-stereo=1';
+      if (!/maxaveragebitrate=/.test(next)) next += ';maxaveragebitrate=160000';
+      return next;
+    }).join('\r\n');
+  }
+
   function showError(message) {
     errorText.textContent = message;
     errorText.classList.remove('hidden');
@@ -28,11 +44,14 @@
 
     localStream.getTracks().forEach((track) => {
       const sender = conn.addTrack(track, localStream);
+      const params = sender.getParameters();
+      if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
       if (track.kind === 'video') {
-        const params = sender.getParameters();
-        if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
         params.encodings[0].maxFramerate = 60;
         params.encodings[0].maxBitrate = 6_000_000; // 6 Mbps ceiling — enough headroom for fast motion at 60fps
+        sender.setParameters(params).catch(() => {});
+      } else if (track.kind === 'audio') {
+        params.encodings[0].maxBitrate = 160_000; // well above default voice-call bitrate
         sender.setParameters(params).catch(() => {});
       }
     });
@@ -58,7 +77,14 @@
     try {
       localStream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 60, max: 60 } },
-        audio: true,
+        audio: {
+          // Mic-oriented processing mangles game/system audio — turn it off.
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 2,
+          sampleRate: 48000,
+        },
       });
     } catch (err) {
       showError('Screen share was cancelled or is not permitted: ' + err.message);
@@ -92,6 +118,7 @@
     pendingCandidates = [];
     pc = createPeerConnection();
     const offer = await pc.createOffer();
+    offer.sdp = boostOpusAudio(offer.sdp);
     await pc.setLocalDescription(offer);
     socket.emit('signal', { type: 'offer', sdp: offer });
   });

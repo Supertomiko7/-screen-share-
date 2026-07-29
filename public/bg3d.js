@@ -1,8 +1,8 @@
-(() => {
-  if (typeof THREE === 'undefined') return;
-  const canvas = document.getElementById('bg-canvas');
-  if (!canvas) return;
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+const canvas = document.getElementById('bg-canvas');
+if (canvas) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
   camera.position.set(0, 0.6, 6.5);
@@ -11,53 +11,52 @@
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
 
-  scene.add(new THREE.AmbientLight(0x6a7aff, 0.7));
-  const keyLight = new THREE.DirectionalLight(0x8fb2ff, 1.1);
+  scene.add(new THREE.AmbientLight(0x6a7aff, 0.8));
+  const keyLight = new THREE.DirectionalLight(0x8fb2ff, 1.2);
   keyLight.position.set(3, 5, 4);
   scene.add(keyLight);
   const rimLight = new THREE.PointLight(0x5865f2, 2, 15);
   rimLight.position.set(-4, 2, -1);
   scene.add(rimLight);
 
-  // --- Procedural low-poly character (generic, no licensed assets) ---
-  const character = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4a56d6, flatShading: true, roughness: 0.55, metalness: 0.25 });
-  const accentMat = new THREE.MeshStandardMaterial({ color: 0x8fe3ff, flatShading: true, roughness: 0.4, metalness: 0.35, emissive: 0x1a3550, emissiveIntensity: 0.4 });
+  // --- Character (your model), base position it bobs/turns around ---
+  const CHAR_BASE_X = 1.7;
+  const CHAR_BASE_Y = -0.6;
+  const characterGroup = new THREE.Group();
+  characterGroup.position.set(CHAR_BASE_X, CHAR_BASE_Y, 0);
+  characterGroup.rotation.y = -0.4;
+  scene.add(characterGroup);
 
-  const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 0), accentMat);
-  head.position.y = 1.5;
-  character.add(head);
+  let mixer = null;
 
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.38, 1.25, 6), bodyMat);
-  torso.position.y = 0.55;
-  character.add(torso);
+  new GLTFLoader().load(
+    '/assets/character.glb',
+    (gltf) => {
+      const model = gltf.scene;
 
-  const ArmGeo = THREE.CapsuleGeometry
-    ? new THREE.CapsuleGeometry(0.12, 0.85, 4, 6)
-    : new THREE.CylinderGeometry(0.12, 0.12, 0.85, 6);
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const scale = 2.6 / (size.y || 1);
+      model.scale.setScalar(scale);
 
-  const armL = new THREE.Mesh(ArmGeo, accentMat);
-  armL.position.set(-0.68, 0.65, 0);
-  armL.rotation.z = 0.3;
-  character.add(armL);
+      const box2 = new THREE.Box3().setFromObject(model);
+      const center2 = new THREE.Vector3();
+      box2.getCenter(center2);
+      model.position.x -= center2.x;
+      model.position.z -= center2.z;
+      model.position.y -= box2.min.y;
 
-  const armR = new THREE.Mesh(ArmGeo, accentMat);
-  armR.position.set(0.68, 0.65, 0);
-  armR.rotation.z = -0.3;
-  character.add(armR);
+      characterGroup.add(model);
 
-  const legGeo = new THREE.CylinderGeometry(0.15, 0.12, 0.85, 6);
-  const legL = new THREE.Mesh(legGeo, bodyMat);
-  legL.position.set(-0.23, -0.5, 0);
-  character.add(legL);
-
-  const legR = new THREE.Mesh(legGeo, bodyMat);
-  legR.position.set(0.23, -0.5, 0);
-  character.add(legR);
-
-  character.position.set(1.7, -0.4, 0);
-  character.rotation.y = -0.4;
-  scene.add(character);
+      if (gltf.animations && gltf.animations.length) {
+        mixer = new THREE.AnimationMixer(model);
+        mixer.clipAction(gltf.animations[0]).play();
+      }
+    },
+    undefined,
+    (err) => console.error('Failed to load character.glb', err)
+  );
 
   // --- Ambient floating particles ---
   const particleCount = 200;
@@ -83,16 +82,16 @@
   const clock = new THREE.Clock();
   function animate() {
     requestAnimationFrame(animate);
-    const t = clock.getElapsedTime();
+    const delta = clock.getDelta();
+    const t = clock.elapsedTime;
 
-    character.position.y = -0.4 + Math.sin(t * 1.2) * 0.15;
-    character.rotation.y = -0.4 + Math.sin(t * 0.5) * 0.25;
-    armL.rotation.z = 0.3 + Math.sin(t * 2) * 0.15;
-    armR.rotation.z = -0.3 - Math.sin(t * 2) * 0.15;
+    characterGroup.position.y = CHAR_BASE_Y + Math.sin(t * 1.2) * 0.15;
+    characterGroup.rotation.y = -0.4 + Math.sin(t * 0.5) * 0.25;
 
+    if (mixer) mixer.update(delta);
     particles.rotation.y = t * 0.02;
 
     renderer.render(scene, camera);
   }
   animate();
-})();
+}

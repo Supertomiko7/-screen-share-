@@ -21,8 +21,15 @@
     <p id="error-text" class="error hidden"></p>
   </main>
 
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  <script src="/bg3d.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module" src="/bg3d.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/viewer.js"></script>
 </body>
