@@ -80,6 +80,20 @@ h1 {
   background: #000;
 }
 
+.unmute-btn {
+  display: block;
+  margin: 12px auto 0;
+  background: #1a1d23;
+  color: #eef0f4;
+  border: 1px solid #2a2d34;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.unmute-btn:hover { background: #2a2d34; }
+
 .error {
   color: #f28b82;
   margin-top: 16px;

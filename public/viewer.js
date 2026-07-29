@@ -2,6 +2,13 @@
   const statusText = document.getElementById('status-text');
   const remoteVideo = document.getElementById('remote-video');
   const errorText = document.getElementById('error-text');
+  const unmuteBtn = document.getElementById('unmute-btn');
+
+  unmuteBtn.addEventListener('click', () => {
+    remoteVideo.muted = false;
+    remoteVideo.play().catch(() => {});
+    unmuteBtn.classList.add('hidden');
+  });
 
   const roomId = window.location.pathname.split('/').pop();
   const socket = io();
@@ -19,6 +26,9 @@
 
     conn.ontrack = (event) => {
       remoteVideo.srcObject = event.streams[0];
+      remoteVideo.play()
+        .then(() => { unmuteBtn.classList.remove('hidden'); })
+        .catch(() => { unmuteBtn.classList.remove('hidden'); });
     };
 
     conn.onicecandidate = (event) => {
