@@ -1,0 +1,14 @@
+{
+  "name": "screen-share",
+  "version": "1.0.0",
+  "description": "Link-based, no-login screen sharing (1-to-1, WebRTC)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "nanoid": "^3.3.7"
+  }
+}

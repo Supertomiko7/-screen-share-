@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Screen Share — Watching</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main class="wrap">
+    <h1>Watching a shared screen</h1>
+    <p class="status" id="status-text">Connecting…</p>
+
+    <video id="remote-video" autoplay playsinline class="remote-video"></video>
+
+    <p id="error-text" class="error hidden"></p>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/viewer.js"></script>
+</body>
+</html>
