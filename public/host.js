@@ -47,8 +47,12 @@
       const params = sender.getParameters();
       if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
       if (track.kind === 'video') {
-        params.encodings[0].maxFramerate = 60;
-        params.encodings[0].maxBitrate = 6_000_000; // 6 Mbps ceiling — enough headroom for fast motion at 60fps
+        // These are ceilings, not guarantees — the encoder will never exceed
+        // what the capture actually produces (itself capped by your monitor's
+        // refresh rate), and WebRTC's congestion control will settle lower
+        // than this if the network path can't sustain it.
+        params.encodings[0].maxFramerate = 240;
+        params.encodings[0].maxBitrate = 10_000_000; // 10 Mbps ceiling — headroom for high-refresh motion
         sender.setParameters(params).catch(() => {});
       } else if (track.kind === 'audio') {
         params.encodings[0].maxBitrate = 160_000; // well above default voice-call bitrate
@@ -73,19 +77,44 @@
     return conn;
   }
 
+  const AUDIO_CONSTRAINTS = {
+    // Mic-oriented processing mangles game/system audio — turn it off.
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false,
+    channelCount: 2,
+    sampleRate: 48000,
+  };
+
+  async function captureScreen() {
+    // getDisplayMedia has no way to guarantee a resolution/frame-rate floor —
+    // it's the OS/display deciding what's capturable, not something the page
+    // can force. Chrome rejects "min" outright for screen capture ("min not
+    // allowed"), and a hard "max" can also throw on some capturers. "ideal"
+    // is the only safe lever: aim for 1080p/240fps, and Chrome will settle
+    // for whatever the display + capture pipeline can actually sustain
+    // (typically 720p+/100fps+ on any modern high-refresh setup).
+    try {
+      return await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 240 },
+        },
+        audio: AUDIO_CONSTRAINTS,
+      });
+    } catch (err) {
+      if (err.name !== 'OverconstrainedError') throw err;
+      return navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 240 } },
+        audio: AUDIO_CONSTRAINTS,
+      });
+    }
+  }
+
   async function startSharing() {
     try {
-      localStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: 60, max: 60 } },
-        audio: {
-          // Mic-oriented processing mangles game/system audio — turn it off.
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          channelCount: 2,
-          sampleRate: 48000,
-        },
-      });
+      localStream = await captureScreen();
     } catch (err) {
       showError('Screen share was cancelled or is not permitted: ' + err.message);
       return;
@@ -95,6 +124,8 @@
     // sharpness), which biases the encoder toward low frame rate. "motion"
     // tells it to prioritize smoothness instead — needed for fast gameplay.
     localStream.getVideoTracks()[0].contentHint = 'motion';
+
+    window.dispatchEvent(new CustomEvent('stream-ready', { detail: localStream }));
 
     preview.srcObject = localStream;
     preview.classList.remove('hidden');

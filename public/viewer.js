@@ -8,6 +8,9 @@
   unmuteBtn.addEventListener('click', () => {
     remoteVideo.muted = false;
     remoteVideo.play().catch(() => {});
+    // The tap is a user gesture — use it to resume the background's audio
+    // analyser too, in case autoplay policy started it suspended.
+    if (window.__bgAudioCtx) window.__bgAudioCtx.resume().catch(() => {});
     if (remoteVideo.srcObject && remoteVideo.srcObject.getAudioTracks().length === 0) {
       unmuteBtn.textContent = 'No audio in this stream';
       unmuteBtn.disabled = true;
@@ -43,6 +46,7 @@
 
     conn.ontrack = (event) => {
       remoteVideo.srcObject = event.streams[0];
+      window.dispatchEvent(new CustomEvent('stream-ready', { detail: event.streams[0] }));
       fullscreenBtn.classList.remove('hidden');
       remoteVideo.play()
         .then(() => { unmuteBtn.classList.remove('hidden'); })
