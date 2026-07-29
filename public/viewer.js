@@ -3,11 +3,28 @@
   const remoteVideo = document.getElementById('remote-video');
   const errorText = document.getElementById('error-text');
   const unmuteBtn = document.getElementById('unmute-btn');
+  const fullscreenBtn = document.getElementById('fullscreen-btn');
 
   unmuteBtn.addEventListener('click', () => {
     remoteVideo.muted = false;
     remoteVideo.play().catch(() => {});
-    unmuteBtn.classList.add('hidden');
+    if (remoteVideo.srcObject && remoteVideo.srcObject.getAudioTracks().length === 0) {
+      unmuteBtn.textContent = 'No audio in this stream';
+      unmuteBtn.disabled = true;
+    } else {
+      unmuteBtn.classList.add('hidden');
+    }
+  });
+
+  fullscreenBtn.addEventListener('click', () => {
+    if (remoteVideo.requestFullscreen) {
+      remoteVideo.requestFullscreen().catch(() => {});
+    } else if (remoteVideo.webkitEnterFullscreen) {
+      // iOS Safari only supports fullscreen on the <video> element itself, via this API.
+      remoteVideo.webkitEnterFullscreen();
+    } else if (remoteVideo.webkitRequestFullscreen) {
+      remoteVideo.webkitRequestFullscreen();
+    }
   });
 
   const roomId = window.location.pathname.split('/').pop();
@@ -26,6 +43,7 @@
 
     conn.ontrack = (event) => {
       remoteVideo.srcObject = event.streams[0];
+      fullscreenBtn.classList.remove('hidden');
       remoteVideo.play()
         .then(() => { unmuteBtn.classList.remove('hidden'); })
         .catch(() => { unmuteBtn.classList.remove('hidden'); });

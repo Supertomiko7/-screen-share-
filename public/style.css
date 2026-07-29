@@ -80,9 +80,14 @@ h1 {
   background: #000;
 }
 
+.video-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
 .unmute-btn {
-  display: block;
-  margin: 12px auto 0;
   background: #1a1d23;
   color: #eef0f4;
   border: 1px solid #2a2d34;
@@ -93,6 +98,7 @@ h1 {
 }
 
 .unmute-btn:hover { background: #2a2d34; }
+.unmute-btn:disabled { opacity: 0.6; cursor: default; }
 
 .error {
   color: #f28b82;
